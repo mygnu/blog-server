@@ -11,13 +11,10 @@ use actix_web::server;
 use diesel::{PgConnection, r2d2::ConnectionManager};
 use dotenv::dotenv;
 
-use models::DbExecutor;
+use db::models::DbExecutor;
 
-mod schema;
-mod models;
+mod db;
 mod app;
-mod like_handler;
-mod errors;
 
 fn main() {
     dotenv().ok();

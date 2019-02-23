@@ -2,7 +2,7 @@ use actix::{Actor, Addr, SyncContext};
 use diesel::pg::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
 
-use crate::schema::likes;
+use crate::db::schema::likes;
 
 pub struct DbExecutor(pub Pool<ConnectionManager<PgConnection>>);
 
@@ -21,6 +21,6 @@ pub struct AppState {
 #[derive(Debug, Serialize, Deserialize, Queryable, Insertable, Default)]
 #[table_name = "likes"]
 pub struct Like {
-    pub id: i32,
+    pub id: String,
     pub value: i32,
 }

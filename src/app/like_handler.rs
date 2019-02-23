@@ -3,11 +3,12 @@ use actix_web::{AsyncResponder, FutureResponse, HttpResponse, Path, ResponseErro
 use diesel::{self, prelude::*};
 use futures::future::Future;
 
-use crate::errors::ServiceError;
-use crate::models::{AppState, DbExecutor, Like};
+use crate::db::models::{AppState, DbExecutor, Like};
+
+use super::errors::ServiceError;
 
 #[derive(Debug, Default, Deserialize)]
-pub struct AddLike(i32);
+pub struct AddLike(String);
 
 impl Message for AddLike {
     type Result = Result<Like, ServiceError>;
@@ -16,11 +17,11 @@ impl Message for AddLike {
 impl Handler<AddLike> for DbExecutor {
     type Result = Result<Like, ServiceError>;
     fn handle(&mut self, msg: AddLike, _: &mut Self::Context) -> Self::Result {
-        use crate::schema::likes::dsl::{likes, id, value};
+        use crate::db::schema::likes::dsl::{likes, id, value};
         let conn: &PgConnection = &self.0.get().unwrap();
 
         let updated: Result<Like, _> = diesel::update(likes)
-            .filter(id.eq(msg.0))
+            .filter(id.eq(msg.0.clone()))
             .set(value.eq(value + 1))
             .get_result(conn);
 
@@ -28,7 +29,7 @@ impl Handler<AddLike> for DbExecutor {
             Ok(like) => Ok(like),
             Err(_) => {
                 diesel::insert_into(likes)
-                    .values(value.eq(1))
+                    .values((value.eq(1), id.eq(msg.0)))
                     .get_result(conn)
                     .map_err(|diesel_error| diesel_error.into())
             }
@@ -36,7 +37,7 @@ impl Handler<AddLike> for DbExecutor {
     }
 }
 
-pub fn add_like((id, state): (Path<i32>, State<AppState>)) -> FutureResponse<HttpResponse> {
+pub fn add_like((id, state): (Path<String>, State<AppState>)) -> FutureResponse<HttpResponse> {
     state.db
         .send(AddLike(id.into_inner()))
         .from_err()
@@ -47,7 +48,7 @@ pub fn add_like((id, state): (Path<i32>, State<AppState>)) -> FutureResponse<Htt
 }
 
 
-pub struct GetLike(i32);
+pub struct GetLike(String);
 
 impl Message for GetLike {
     type Result = Result<Like, ServiceError>;
@@ -56,7 +57,7 @@ impl Message for GetLike {
 impl Handler<GetLike> for DbExecutor {
     type Result = Result<Like, ServiceError>;
     fn handle(&mut self, msg: GetLike, _: &mut Self::Context) -> Self::Result {
-        use crate::schema::likes::dsl::likes;
+        use crate::db::schema::likes::dsl::likes;
         let conn: &PgConnection = &self.0.get().unwrap();
 
         return likes
@@ -66,7 +67,7 @@ impl Handler<GetLike> for DbExecutor {
     }
 }
 
-pub fn get_likes((id, state): (Path<i32>, State<AppState>)) -> FutureResponse<HttpResponse> {
+pub fn get_likes((id, state): (Path<String>, State<AppState>)) -> FutureResponse<HttpResponse> {
     let get_like = GetLike(id.into_inner());
     state.db
         .send(get_like)

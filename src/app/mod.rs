@@ -1,8 +1,13 @@
 use actix::Addr;
 use actix_web::{App, http::Method, middleware::Logger};
 
-use crate::like_handler::{add_like, get_likes};
-use crate::models::{AppState, DbExecutor};
+use crate::db::models::{AppState, DbExecutor};
+
+use self::like_handler::{add_like, get_likes};
+
+mod errors;
+mod like_handler;
+
 
 /// creates and returns the app after mounting all routes/resources
 pub fn create_app(db: Addr<DbExecutor>) -> App<AppState> {
