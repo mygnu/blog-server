@@ -2,6 +2,7 @@ use actix::{Handler, Message};
 use actix_web::{AsyncResponder, FutureResponse, HttpResponse, Path, ResponseError, State};
 use diesel::{self, prelude::*};
 use futures::future::Future;
+use serde::Deserialize;
 
 use crate::db::models::{AppState, DbExecutor, Like};
 

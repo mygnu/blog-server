@@ -1,6 +1,7 @@
 use actix::{Actor, Addr, SyncContext};
 use diesel::pg::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
+use serde::{Deserialize, Serialize};
 
 use crate::db::schema::likes;
 

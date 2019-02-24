@@ -1,0 +1,11 @@
+[Unit]
+Description=rust server
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/blog-server
+Type=exec
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
