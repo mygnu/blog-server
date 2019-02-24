@@ -1,8 +1,9 @@
 [package]
 name = "blog-server"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["mygnu <tech@hgill.io>"]
 edition = "2018"
+license = "LGPL-3.0-or-later"
 
 [dependencies]
 actix = "0.7.9"
@@ -20,3 +21,19 @@ serde = {version = "1.0.88", features = ["derive"]}
 [profile.release]
 lto=true
 opt-level= 3
+
+[package.metadata.deb]
+maintainer = "Harry Gill <tech@gill.net.in>"
+copyright = "2019, Harry Gill"
+depends = "$auto, systemd"
+conf-files = ["/usr/local/etc/blog-server-config.ini", "/etc/systemd/system/blog-server.service"]
+extended-description = """\
+static blog server for serving likes and comments for posts.\
+"""
+section = "admin"
+priority = "optional"
+assets = [
+    ["target/release/blog-server", "/usr/local/bin/", "755"],
+    ["assets/blog-server.service", "/etc/systemd/system/", "644"],
+    ["assets/blog-server-config.ini", "/usr/local/etc/", "644"],
+]
