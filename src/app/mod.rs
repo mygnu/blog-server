@@ -3,7 +3,7 @@ use actix_web::{App, http::Method, middleware::Logger};
 
 use crate::db::models::{AppState, DbExecutor};
 
-use self::like_handler::{add_like, get_likes};
+use self::like_handler::{add_like, get_post};
 
 mod errors;
 mod like_handler;
@@ -18,8 +18,8 @@ pub fn create_app(db: Addr<DbExecutor>) -> App<AppState> {
 //        .resource("/likes", |r| {
 //            r.method(Method::POST).with(add_like);
 //        })
-        .resource("/likes/{id}", |r| {
-            r.method(Method::GET).with(get_likes);
+        .resource("/posts/{id}", |r| {
+            r.method(Method::GET).with(get_post);
             r.method(Method::POST).with(add_like);
         })
 }

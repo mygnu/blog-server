@@ -1,5 +1,5 @@
 -- Your SQL goes here
-CREATE TABLE likes (
+CREATE TABLE posts (
 id TEXT PRIMARY KEY NOT NULL,
-value INTEGER NOT NULL
+likes INTEGER NOT NULL
 )

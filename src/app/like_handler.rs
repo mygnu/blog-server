@@ -1,10 +1,10 @@
 use actix::{Handler, Message};
 use actix_web::{AsyncResponder, FutureResponse, HttpResponse, Path, ResponseError, State};
-use diesel::{self, prelude::*};
+use diesel::prelude::*;
 use futures::future::Future;
 use serde::Deserialize;
 
-use crate::db::models::{AppState, DbExecutor, Like};
+use crate::db::models::{AppState, DbExecutor, Post};
 
 use super::errors::ServiceError;
 
@@ -12,29 +12,41 @@ use super::errors::ServiceError;
 pub struct AddLike(String);
 
 impl Message for AddLike {
-    type Result = Result<Like, ServiceError>;
+    type Result = Result<Post, ServiceError>;
 }
 
 impl Handler<AddLike> for DbExecutor {
-    type Result = Result<Like, ServiceError>;
+    type Result = Result<Post, ServiceError>;
+
     fn handle(&mut self, msg: AddLike, _: &mut Self::Context) -> Self::Result {
-        use crate::db::schema::likes::dsl::{likes, id, value};
-        let conn: &PgConnection = &self.0.get().unwrap();
+        use crate::db::schema::posts::dsl::{posts, id, likes};
+        let conn: &SqliteConnection = &self.0.get().unwrap();
 
-        let updated: Result<Like, _> = diesel::update(likes)
-            .filter(id.eq(msg.0.clone()))
-            .set(value.eq(value + 1))
-            .get_result(conn);
+        let updated = diesel::update(posts.find(&msg.0))
+            .set(likes.eq(likes + 1))
+            .execute(conn).unwrap_or(0);
 
-        match updated {
-            Ok(like) => Ok(like),
-            Err(_) => {
-                diesel::insert_into(likes)
-                    .values((value.eq(1), id.eq(msg.0)))
-                    .get_result(conn)
-                    .map_err(|diesel_error| diesel_error.into())
+        if updated == 1 {
+            get_post_by_id(conn, &msg.0)
+        } else {
+            let inserted = diesel::insert_into(posts)
+                .values((likes.eq(1), id.eq(&msg.0)))
+                .execute(conn);
+            if inserted.is_err() {
+                Err(ServiceError::BadRequest("Couldn't insert into table".into()))
+            } else {
+                get_post_by_id(conn, &msg.0)
             }
         }
+    }
+}
+
+fn get_post_by_id(conn: &SqliteConnection, post_id: &str) -> Result<Post, ServiceError> {
+    use crate::db::schema::posts::dsl::posts;
+    let result = posts.find(post_id).get_result::<Post>(conn);
+    match result {
+        Ok(like) => Ok(like),
+        Err(_) => Err(ServiceError::BadRequest(format!("Can't find id: {}", post_id)))
     }
 }
 
@@ -49,29 +61,23 @@ pub fn add_like((id, state): (Path<String>, State<AppState>)) -> FutureResponse<
 }
 
 
-pub struct GetLike(String);
+pub struct GetPost(String);
 
-impl Message for GetLike {
-    type Result = Result<Like, ServiceError>;
+impl Message for GetPost {
+    type Result = Result<Post, ServiceError>;
 }
 
-impl Handler<GetLike> for DbExecutor {
-    type Result = Result<Like, ServiceError>;
-    fn handle(&mut self, msg: GetLike, _: &mut Self::Context) -> Self::Result {
-        use crate::db::schema::likes::dsl::likes;
-        let conn: &PgConnection = &self.0.get().unwrap();
-
-        return likes
-            .find(msg.0)
-            .get_result(conn)
-            .map_err(|diesel_error| diesel_error.into());
+impl Handler<GetPost> for DbExecutor {
+    type Result = Result<Post, ServiceError>;
+    fn handle(&mut self, msg: GetPost, _: &mut Self::Context) -> Self::Result {
+        let conn: &SqliteConnection = &self.0.get().unwrap();
+        get_post_by_id(conn, &msg.0)
     }
 }
 
-pub fn get_likes((id, state): (Path<String>, State<AppState>)) -> FutureResponse<HttpResponse> {
-    let get_like = GetLike(id.into_inner());
+pub fn get_post((id, state): (Path<String>, State<AppState>)) -> FutureResponse<HttpResponse> {
     state.db
-        .send(get_like)
+        .send(GetPost(id.into_inner()))
         .from_err()
         .and_then(|db_response| match db_response {
             Ok(like) => Ok(HttpResponse::Ok().json(like)),

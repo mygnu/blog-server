@@ -1,6 +1,6 @@
 table! {
-    likes (id) {
+    posts (id) {
         id -> Text,
-        value -> Int4,
+        likes -> Integer,
     }
 }

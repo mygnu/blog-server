@@ -4,7 +4,7 @@ extern crate diesel;
 use actix::prelude::*;
 use actix_web::server;
 use config::ConfigError;
-use diesel::{PgConnection, r2d2::ConnectionManager};
+use diesel::{r2d2::ConnectionManager, SqliteConnection};
 
 use db::models::DbExecutor;
 
@@ -21,9 +21,9 @@ fn main() -> Result<(), ConfigError> {
     let sys = actix::System::new("blog-server");
 
     // create db connection pool
-//    let manager = ConnectionManager::<PgConnection>::new(database_url);
+//    let manager = ConnectionManager::<SqliteConnection>::new(database_url);
     let pool = r2d2::Pool::builder()
-        .build(ConnectionManager::<PgConnection>::new(settings.database_url))
+        .build(ConnectionManager::<SqliteConnection>::new(settings.database_url))
         .expect("Failed to create pool.");
 
     let address: Addr<DbExecutor> = SyncArbiter::start(4, move || DbExecutor(pool.clone()));

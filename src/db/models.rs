@@ -1,11 +1,11 @@
 use actix::{Actor, Addr, SyncContext};
-use diesel::pg::PgConnection;
+use diesel::prelude::SqliteConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
 use serde::{Deserialize, Serialize};
 
-use crate::db::schema::likes;
+use crate::db::schema::posts;
 
-pub struct DbExecutor(pub Pool<ConnectionManager<PgConnection>>);
+pub struct DbExecutor(pub Pool<ConnectionManager<SqliteConnection>>);
 
 // Actors communicate exclusively by exchanging messages.
 // The sending actor can optionally wait for the response.
@@ -20,8 +20,8 @@ pub struct AppState {
 }
 
 #[derive(Debug, Serialize, Deserialize, Queryable, Insertable, Default)]
-#[table_name = "likes"]
-pub struct Like {
+#[table_name = "posts"]
+pub struct Post {
     pub id: String,
-    pub value: i32,
+    pub likes: i32,
 }
