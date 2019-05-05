@@ -2,6 +2,7 @@
 name = "blog-server"
 version = "0.2.0"
 authors = ["mygnu <tech@hgill.io>"]
+description = "static blog server for serving likes and comments for posts."
 edition = "2018"
 license = "LGPL-3.0-or-later"
 
@@ -11,6 +12,7 @@ actix-web="0.7.18"
 chrono = "0.4.6"
 config = "0.9.2"
 diesel = { version = "1.4", features = ["sqlite", "r2d2"] }
+diesel_migrations = "1.4.0"
 dotenv = "0.13.0"
 env_logger = "0.6.0"
 failure = "0.1.5"
@@ -37,3 +39,13 @@ assets = [
     ["assets/blog-server.service", "/etc/systemd/system/", "644"],
     ["assets/blog-server-config.ini", "/usr/local/etc/", "644"],
 ]
+
+
+[package.metadata.rpm.cargo]
+buildflags = ["--release"]
+
+[package.metadata.rpm.targets]
+blog-server = { path = "/usr/sbin/blog-server" }
+
+[package.metadata.rpm.files]
+"blog-server.service" = { path = "/usr/lib/systemd/system/blog-server.service" }

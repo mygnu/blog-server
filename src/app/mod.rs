@@ -13,11 +13,6 @@ mod like_handler;
 pub fn create_app(db: Addr<DbExecutor>) -> App<AppState> {
     App::with_state(AppState { db })
         .middleware(Logger::default())
-        // everything under '/api/' route
-
-//        .resource("/likes", |r| {
-//            r.method(Method::POST).with(add_like);
-//        })
         .resource("/posts/{id}", |r| {
             r.method(Method::GET).with(get_post);
             r.method(Method::POST).with(add_like);

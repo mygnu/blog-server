@@ -17,15 +17,23 @@ fn main() -> Result<(), ConfigError> {
     std::env::set_var("RUST_BACKTRACE", "1");
     env_logger::init();
     let settings = crate::settings::Settings::new()?;
-//    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    db::run_migrations(settings.database_url.as_ref());
+
+//    let migrations_dir = migrations::find_migrations_directory().unwrap();
+//    migrations::run_pending_migrations_in_directory(
+//        &SqliteConnection::establish(&settings.database_url).unwrap(),
+//        &migrations_dir,
+//        &mut io::stdout(),
+//    ).unwrap();
+
+
     let sys = actix::System::new("blog-server");
 
     // create db connection pool
-//    let manager = ConnectionManager::<SqliteConnection>::new(database_url);
     let pool = r2d2::Pool::builder()
         .build(ConnectionManager::<SqliteConnection>::new(settings.database_url))
         .expect("Failed to create pool.");
-
     let address: Addr<DbExecutor> = SyncArbiter::start(4, move || DbExecutor(pool.clone()));
 
     server::new(move || app::create_app(address.clone()))
