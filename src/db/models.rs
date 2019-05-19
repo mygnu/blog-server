@@ -15,7 +15,7 @@ impl Actor for DbExecutor {
     type Context = SyncContext<Self>;
 }
 
-pub struct AppState {
+pub struct AppData {
     pub db: Addr<DbExecutor>,
 }
 

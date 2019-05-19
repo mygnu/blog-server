@@ -1,46 +1,63 @@
 #[macro_use]
 extern crate diesel;
+#[macro_use]
+extern crate diesel_migrations;
 
 use actix::prelude::*;
-use actix_web::server;
+use actix_web::{App, HttpServer, middleware::Logger, web};
 use config::ConfigError;
-use diesel::{r2d2::ConnectionManager, SqliteConnection};
+use diesel::{r2d2::ConnectionManager, SqliteConnection, Connection};
 
-use db::models::DbExecutor;
+use app::like_handler::{add_like, get_post};
+use db::models::{AppData, DbExecutor};
 
 mod db;
 mod app;
 mod settings;
 
+embed_migrations!("migrations");
+
 fn main() -> Result<(), ConfigError> {
-    std::env::set_var("RUST_LOG", "blog-server=debug,actix_web=info");
-    std::env::set_var("RUST_BACKTRACE", "1");
+    std::env::set_var(
+        "RUST_LOG",
+        "blog-server=debug,actix_web=info,actix_server=info",
+    );
+    #[cfg(debug_assertions)]
+        std::env::set_var("RUST_BACKTRACE", "1");
+
     env_logger::init();
     let settings = crate::settings::Settings::new()?;
-
-    db::run_migrations(settings.database_url.as_ref());
-
-//    let migrations_dir = migrations::find_migrations_directory().unwrap();
-//    migrations::run_pending_migrations_in_directory(
-//        &SqliteConnection::establish(&settings.database_url).unwrap(),
-//        &migrations_dir,
-//        &mut io::stdout(),
-//    ).unwrap();
+    let cpu_cores = num_cpus::get();
 
 
+    match SqliteConnection::establish(settings.database_url.as_ref()) {
+        Ok(connection) => {
+            let _ = embedded_migrations::run_with_output(&connection, &mut std::io::stdout());
+        }
+        Err(err) => {
+            println!("Error getting Connection {}", err);
+        }
+    }
     let sys = actix::System::new("blog-server");
 
     // create db connection pool
     let pool = r2d2::Pool::builder()
         .build(ConnectionManager::<SqliteConnection>::new(settings.database_url))
         .expect("Failed to create pool.");
-    let address: Addr<DbExecutor> = SyncArbiter::start(4, move || DbExecutor(pool.clone()));
+    let address: Addr<DbExecutor> = SyncArbiter::start(cpu_cores, move || DbExecutor(pool.clone()));
 
-    server::new(move || app::create_app(address.clone()))
+    HttpServer::new(move || {
+        App::new()
+            .data(AppData { db: address.clone() })
+            .wrap(Logger::default())
+            .service(web::resource("/posts/{id}")
+                .route(web::get().to_async(get_post))
+                .route(web::post().to_async(add_like)))
+    })
         .bind(settings.server_url.as_str())
-        .expect(format!("Can not bind to '{}'", settings.server_url).as_str())
-        .run();
+        .expect("Can not bind to port")
+        .start();
 
-    sys.run();
+    let _ = sys.run();
     Ok(())
 }

@@ -1,10 +1,10 @@
 use actix::{Handler, Message};
-use actix_web::{AsyncResponder, FutureResponse, HttpResponse, Path, ResponseError, State};
+use actix_web::{Error, HttpResponse, ResponseError, web::Data, web::Path};
 use diesel::prelude::*;
-use futures::future::Future;
+use futures::Future;
 use serde::Deserialize;
 
-use crate::db::models::{AppState, DbExecutor, Post};
+use crate::db::models::{AppData, DbExecutor, Post};
 
 use super::errors::ServiceError;
 
@@ -50,14 +50,14 @@ fn get_post_by_id(conn: &SqliteConnection, post_id: &str) -> Result<Post, Servic
     }
 }
 
-pub fn add_like((id, state): (Path<String>, State<AppState>)) -> FutureResponse<HttpResponse> {
+pub fn add_like(id: Path<String>, state: Data<AppData>) -> impl Future<Item=HttpResponse, Error=Error> {
     state.db
         .send(AddLike(id.into_inner()))
         .from_err()
         .and_then(|db_response| match db_response {
             Ok(like) => Ok(HttpResponse::Ok().json(like)),
             Err(service_error) => Ok(service_error.error_response()),
-        }).responder()
+        })
 }
 
 
@@ -75,12 +75,12 @@ impl Handler<GetPost> for DbExecutor {
     }
 }
 
-pub fn get_post((id, state): (Path<String>, State<AppState>)) -> FutureResponse<HttpResponse> {
+pub fn get_post(id: Path<String>, state: Data<AppData>) -> impl Future<Item=HttpResponse, Error=Error> {
     state.db
         .send(GetPost(id.into_inner()))
         .from_err()
         .and_then(|db_response| match db_response {
             Ok(like) => Ok(HttpResponse::Ok().json(like)),
             Err(service_error) => Ok(service_error.error_response()),
-        }).responder()
+        })
 }
