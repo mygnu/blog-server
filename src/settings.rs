@@ -13,10 +13,10 @@ impl Settings {
 
         // read the local file only in development mode
         #[cfg(debug_assertions)]
-            s.merge(File::with_name("assets/blog-server-config.ini"))?;
+        s.merge(File::with_name("assets/blog-server-config.ini"))?;
 
         #[cfg(not(debug_assertions))]
-            s.merge(File::with_name("/usr/local/etc/blog-server-config.ini"))?;
+        s.merge(File::with_name("/usr/local/etc/blog-server-config.ini"))?;
 
         s.try_into()
     }

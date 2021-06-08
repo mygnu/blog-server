@@ -1,5 +1,5 @@
 use actix::{Handler, Message};
-use actix_web::{Error, HttpResponse, ResponseError, web::Data, web::Path};
+use actix_web::{web::Data, web::Path, Error, HttpResponse, ResponseError};
 use diesel::prelude::*;
 use futures::Future;
 use serde::Deserialize;
@@ -19,12 +19,13 @@ impl Handler<AddLike> for DbExecutor {
     type Result = Result<Post, ServiceError>;
 
     fn handle(&mut self, msg: AddLike, _: &mut Self::Context) -> Self::Result {
-        use crate::db::schema::posts::dsl::{posts, id, likes};
+        use crate::db::schema::posts::dsl::{id, likes, posts};
         let conn: &SqliteConnection = &self.0.get().unwrap();
 
         let updated = diesel::update(posts.find(&msg.0))
             .set(likes.eq(likes + 1))
-            .execute(conn).unwrap_or(0);
+            .execute(conn)
+            .unwrap_or(0);
 
         if updated == 1 {
             get_post_by_id(conn, &msg.0)
@@ -33,7 +34,9 @@ impl Handler<AddLike> for DbExecutor {
                 .values((likes.eq(1), id.eq(&msg.0)))
                 .execute(conn);
             if inserted.is_err() {
-                Err(ServiceError::BadRequest("Couldn't insert into table".into()))
+                Err(ServiceError::BadRequest(
+                    "Couldn't insert into table".into(),
+                ))
             } else {
                 get_post_by_id(conn, &msg.0)
             }
@@ -46,12 +49,19 @@ fn get_post_by_id(conn: &SqliteConnection, post_id: &str) -> Result<Post, Servic
     let result = posts.find(post_id).get_result::<Post>(conn);
     match result {
         Ok(like) => Ok(like),
-        Err(_) => Err(ServiceError::BadRequest(format!("Can't find id: {}", post_id)))
+        Err(_) => Err(ServiceError::BadRequest(format!(
+            "Can't find id: {}",
+            post_id
+        ))),
     }
 }
 
-pub fn add_like(id: Path<String>, state: Data<AppData>) -> impl Future<Item=HttpResponse, Error=Error> {
-    state.db
+pub fn add_like(
+    id: Path<String>,
+    state: Data<AppData>,
+) -> impl Future<Item = HttpResponse, Error = Error> {
+    state
+        .db
         .send(AddLike(id.into_inner()))
         .from_err()
         .and_then(|db_response| match db_response {
@@ -59,7 +69,6 @@ pub fn add_like(id: Path<String>, state: Data<AppData>) -> impl Future<Item=Http
             Err(service_error) => Ok(service_error.error_response()),
         })
 }
-
 
 pub struct GetPost(String);
 
@@ -75,8 +84,12 @@ impl Handler<GetPost> for DbExecutor {
     }
 }
 
-pub fn get_post(id: Path<String>, state: Data<AppData>) -> impl Future<Item=HttpResponse, Error=Error> {
-    state.db
+pub fn get_post(
+    id: Path<String>,
+    state: Data<AppData>,
+) -> impl Future<Item = HttpResponse, Error = Error> {
+    state
+        .db
         .send(GetPost(id.into_inner()))
         .from_err()
         .and_then(|db_response| match db_response {

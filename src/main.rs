@@ -4,15 +4,15 @@ extern crate diesel;
 extern crate diesel_migrations;
 
 use actix::prelude::*;
-use actix_web::{App, HttpServer, middleware::Logger, web};
+use actix_web::{middleware::Logger, web, App, HttpServer};
 use config::ConfigError;
-use diesel::{r2d2::ConnectionManager, SqliteConnection, Connection};
+use diesel::{r2d2::ConnectionManager, Connection, SqliteConnection};
 
 use app::like_handler::{add_like, get_post};
 use db::models::{AppData, DbExecutor};
 
-mod db;
 mod app;
+mod db;
 mod settings;
 
 embed_migrations!("migrations");
@@ -23,12 +23,11 @@ fn main() -> Result<(), ConfigError> {
         "blog-server=debug,actix_web=info,actix_server=info",
     );
     #[cfg(debug_assertions)]
-        std::env::set_var("RUST_BACKTRACE", "1");
+    std::env::set_var("RUST_BACKTRACE", "1");
 
     env_logger::init();
     let settings = crate::settings::Settings::new()?;
     let cpu_cores = num_cpus::get();
-
 
     match SqliteConnection::establish(settings.database_url.as_ref()) {
         Ok(connection) => {
@@ -42,21 +41,27 @@ fn main() -> Result<(), ConfigError> {
 
     // create db connection pool
     let pool = r2d2::Pool::builder()
-        .build(ConnectionManager::<SqliteConnection>::new(settings.database_url))
+        .build(ConnectionManager::<SqliteConnection>::new(
+            settings.database_url,
+        ))
         .expect("Failed to create pool.");
     let address: Addr<DbExecutor> = SyncArbiter::start(cpu_cores, move || DbExecutor(pool.clone()));
 
     HttpServer::new(move || {
         App::new()
-            .data(AppData { db: address.clone() })
+            .data(AppData {
+                db: address.clone(),
+            })
             .wrap(Logger::default())
-            .service(web::resource("/posts/{id}")
-                .route(web::get().to_async(get_post))
-                .route(web::post().to_async(add_like)))
+            .service(
+                web::resource("/api/posts/{id}")
+                    .route(web::get().to_async(get_post))
+                    .route(web::post().to_async(add_like)),
+            )
     })
-        .bind(settings.server_url.as_str())
-        .expect("Can not bind to port")
-        .start();
+    .bind(settings.server_url.as_str())
+    .expect("Can not bind to port")
+    .start();
 
     let _ = sys.run();
     Ok(())
