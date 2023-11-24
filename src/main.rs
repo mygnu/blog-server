@@ -1,23 +1,46 @@
-#[macro_use]
 extern crate diesel;
-#[macro_use]
 extern crate diesel_migrations;
 
-use actix::prelude::*;
-use actix_web::{middleware::Logger, web, App, HttpServer};
-use config::ConfigError;
-use diesel::{r2d2::ConnectionManager, Connection, SqliteConnection};
+use std::net::{Ipv4Addr, SocketAddr};
 
-use app::like_handler::{add_like, get_post};
-use db::models::{AppData, DbExecutor};
+use actix_web::{middleware, web::Data, App, HttpServer};
+
+use tracing::Level;
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::EnvFilter;
+
+use app::posts::{get_likes, like_post};
 
 mod app;
 mod db;
-mod settings;
+pub(crate) mod errors;
 
-embed_migrations!("migrations");
+use crate::errors::Result;
 
-fn main() -> Result<(), ConfigError> {
+use clap::Parser;
+
+/// Simple program to greet a person
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Path to the database file
+    #[arg(short, long, default_value = "/tmp/blog.db")]
+    db_path: String,
+
+    /// Port to listen on
+    #[arg(short, long, default_value_t = 3000)]
+    port: u16,
+}
+
+#[derive(Clone)]
+pub(crate) struct AppState {
+    pub(crate) pool: db::Pool,
+}
+
+#[actix_web::main]
+#[tracing::instrument]
+async fn main() -> Result<()> {
+    let args = Args::parse();
     std::env::set_var(
         "RUST_LOG",
         "blog-server=debug,actix_web=info,actix_server=info",
@@ -25,44 +48,34 @@ fn main() -> Result<(), ConfigError> {
     #[cfg(debug_assertions)]
     std::env::set_var("RUST_BACKTRACE", "1");
 
-    env_logger::init();
-    let settings = crate::settings::Settings::new()?;
-    let cpu_cores = num_cpus::get();
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(
+            EnvFilter::builder()
+                .with_default_directive(Level::ERROR.into())
+                .from_env_lossy(),
+        )
+        .init();
 
-    match SqliteConnection::establish(settings.database_url.as_ref()) {
-        Ok(connection) => {
-            let _ = embedded_migrations::run_with_output(&connection, &mut std::io::stdout());
-        }
-        Err(err) => {
-            println!("Error getting Connection {}", err);
-        }
-    }
-    let sys = actix::System::new("blog-server");
+    tracing::trace!("Tracing initialized");
 
     // create db connection pool
-    let pool = r2d2::Pool::builder()
-        .build(ConnectionManager::<SqliteConnection>::new(
-            settings.database_url,
-        ))
-        .expect("Failed to create pool.");
-    let address: Addr<DbExecutor> = SyncArbiter::start(cpu_cores, move || DbExecutor(pool.clone()));
+    let pool = db::build_pool(args.db_path)?;
+    let socket_address = SocketAddr::from((Ipv4Addr::UNSPECIFIED, args.port));
+
+    tracing::info!("Starting server at: {}", socket_address);
 
     HttpServer::new(move || {
         App::new()
-            .data(AppData {
-                db: address.clone(),
-            })
-            .wrap(Logger::default())
-            .service(
-                web::resource("/api/posts/{id}")
-                    .route(web::get().to_async(get_post))
-                    .route(web::post().to_async(add_like)),
-            )
+            .app_data(Data::new(AppState { pool: pool.clone() }))
+            .wrap(middleware::NormalizePath::trim())
+            .wrap(middleware::Logger::default())
+            .wrap(middleware::Compress::default())
+            .service(like_post)
+            .service(get_likes)
     })
-    .bind(settings.server_url.as_str())
-    .expect("Can not bind to port")
-    .start();
-
-    let _ = sys.run();
-    Ok(())
+    .bind(socket_address)?
+    .run()
+    .await
+    .map_err(Into::into)
 }

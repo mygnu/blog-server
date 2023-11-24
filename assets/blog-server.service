@@ -3,7 +3,7 @@ Description=rust blog server
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/blog-server
+ExecStart=/usr/local/bin/blog-server --port 3000 --db-path /var/blog-server/db.sqlite3
 Type=exec
 Restart=on-failure
 

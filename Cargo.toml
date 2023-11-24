@@ -1,25 +1,20 @@
 [package]
 name = "blog-server"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["mygnu <tech@hgill.io>"]
 description = "static blog server for serving likes and comments for posts."
-edition = "2018"
+edition = "2021"
 license = "LGPL-3.0-or-later"
 
 [dependencies]
-actix = "0.8.2"
-actix-web="1.0.0-rc"
-chrono = "0.4.6"
-config = "0.9.2"
-diesel = { version = "1.4", features = ["sqlite", "r2d2"] }
-diesel_migrations = {version= "1.4.0", features = ["sqlite"]}
-dotenv = "0.13.0"
-env_logger = "0.6.0"
-failure = "0.1.5"
-futures = "0.1"
-num_cpus = "^1.10"
-r2d2 = "0.8.3"
-serde = {version = "1.0.88", features = ["derive"]}
+actix-web="4.4"
+chrono = "0.4"
+clap = { version = "4.4", features = ["derive"] }
+diesel = { version = "2.1", features = ["sqlite", "r2d2"] }
+diesel_migrations = { version= "2.1", features = ["sqlite"]}
+serde = { version = "1.0", features = ["derive"]}
+tracing = { version = "0.1", features = ["log"]}
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [profile.release]
 lto= true
@@ -27,9 +22,9 @@ opt-level= 3
 
 [package.metadata.deb]
 maintainer = "Harry Gill <tech@gill.net.in>"
-copyright = "2019, Harry Gill"
+copyright = "2023, Harry Gill"
 depends = "systemd"
-conf-files = ["/usr/local/etc/blog-server-config.ini", "/etc/systemd/system/blog-server.service"]
+conf-files = ["/etc/systemd/system/blog-server.service"]
 extended-description = """\
 static blog server for serving likes and comments for posts.\
 """
@@ -38,5 +33,4 @@ priority = "optional"
 assets = [
     ["target/release/blog-server", "/usr/local/bin/", "755"],
     ["assets/blog-server.service", "/etc/systemd/system/", "644"],
-    ["assets/blog-server-config.ini", "/usr/local/etc/", "644"],
 ]
