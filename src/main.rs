@@ -24,11 +24,11 @@ use clap::Parser;
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Path to the database file
-    #[arg(short, long, default_value = "/tmp/blog.db")]
+    #[arg(short, long, env = "DB_PATH", default_value = "blog.sqlite3")]
     db_path: String,
 
     /// Port to listen on
-    #[arg(short, long, default_value_t = 3000)]
+    #[arg(short, long, env = "PORT", default_value_t = 3000)]
     port: u16,
 }
 
@@ -41,10 +41,9 @@ pub(crate) struct AppState {
 #[tracing::instrument]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    std::env::set_var(
-        "RUST_LOG",
-        "blog-server=debug,actix_web=info,actix_server=info",
-    );
+
+    println!("Args: {:?}", args);
+
     #[cfg(debug_assertions)]
     std::env::set_var("RUST_BACKTRACE", "1");
 
@@ -52,12 +51,13 @@ async fn main() -> Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .with(
             EnvFilter::builder()
-                .with_default_directive(Level::ERROR.into())
+                .with_default_directive(Level::INFO.into())
                 .from_env_lossy(),
         )
         .init();
 
     tracing::trace!("Tracing initialized");
+    tracing::info!("Starting server with args: {:?}", args);
 
     // create db connection pool
     let pool = db::build_pool(args.db_path)?;

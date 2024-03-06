@@ -1,0 +1,3 @@
+*
+!./target/release/blog-server
+!./assets/blog-server.service
